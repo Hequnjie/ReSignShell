@@ -19,3 +19,6 @@ Example：
 
 
 # macOS
+
+Example：
+./macOSReSign /Users/mac/Desktop/BeTalk.app  -AppBundleIdentifier="com.reSignShell.test" -ApplicationCertificate="4566FC00FD3******E089C7EB11A" -Out="/Users/mac/Desktop/out" -InstallerCertificate="4566FC00FD31*****89C7EB11A"

@@ -1,0 +1,156 @@
+#!/bin/bash
+
+#if [ ! -d $1 ];then
+#	echo "Error! The first param must be a directory."
+#	exit 2
+#fi
+
+_APP_PATH=$1;
+
+KEY_AppBundleIdentifier="AppBundleIdentifier"
+KEY_ProvisionProfilePath="ProvisionProfilePath"
+KEY_ApplicationCertificate="ApplicationCertificate"
+KEY_InstallerCertificate="InstallerCertificate"
+KEY_ResourceRules="ResourceRules"
+KEY_Out="Out"
+
+declare _AppBundleIdentifier
+declare _ProvisionProfilePath
+declare _ApplicationCertificate
+declare _InstallerCertificate
+declare _ResourceRules
+declare _Out
+
+echo ""
+echo "-- reSign start"
+echo ""
+
+declare keys=()
+declare values=()
+
+count=1;
+function getKeyAndValue(){
+    local key=`echo $1 | awk -F "[-=]" '{print $2}'`
+    local value=`echo $1 | awk -F "[-=]" '{print $3}'`
+    keys[$count]=$key
+    values[$count]=$value
+    count=$(($count+1))
+}
+
+for arg in "$@"
+do
+    [[ $arg == "-"*"="* ]] && getKeyAndValue $arg
+done
+
+#for (( i=1; i<count; i++ ))
+#do
+#    echo ""
+#    echo $i
+#    echo "key="${keys[$i]}
+#    echo "value="${values[$i]}
+#    echo ""
+#done
+
+for (( i=1; i<count; i++ ))
+do
+    case ${keys[$i]} in
+        $KEY_AppBundleIdentifier)
+            _AppBundleIdentifier=${values[$i]}
+            ;;
+        $KEY_ProvisionProfilePath)
+            _ProvisionProfilePath=${values[$i]}
+            ;;
+        $KEY_ApplicationCertificate)
+            _ApplicationCertificate=${values[$i]}
+            ;;
+        $KEY_InstallerCertificate)
+            _InstallerCertificate=${values[$i]}
+            ;;
+        $KEY_ResourceRules)
+            _ResourceRules=${values[$i]}
+            ;;
+        $KEY_Out)
+            _Out=${values[$i]}
+            ;;
+    esac
+done
+
+echo "app path=$_APP_PATH"
+echo "-$KEY_AppBundleIdentifier=$_AppBundleIdentifier"
+echo "-$KEY_ProvisionProfilePath=$_ProvisionProfilePath"
+echo "-$KEY_ApplicationCertificate=$_ApplicationCertificate"
+echo "-$KEY_InstallerCertificate=$_InstallerCertificate"
+echo "-$KEY_ResourceRules=$_ResourceRules"
+echo "-$KEY_Out=$_Out"
+echo ""
+
+#cd $_Out
+rm -rf $_Out/
+mkdir $_Out/
+var=$_APP_PATH
+var=${var##*/}
+cp -r $_APP_PATH $_Out/$var
+rm -rf $_Out/*.app/Contents/_CodeSignature
+
+if [ ! -z "$_ProvisionProfilePath" ]; then
+    cp $_ProvisionProfilePath $_Out/*.app/Contents/embedded.mobileprovision
+fi
+
+/usr/libexec/PlistBuddy -x -c "print :Entitlements " /dev/stdin <<< $(security cms -D -i $_Out/*.app/Contents/embedded.provisionprofile) > $_Out/entitlements.plist
+
+if [ ! -z "$_AppBundleIdentifier" ]; then
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${_AppBundleIdentifier}" $_Out/*.app/Contents/Info.plist
+fi
+
+codesign_cmd="codesign -fs ${_ApplicationCertificate}  --entitlements=${_Out}/entitlements.plist"
+
+if [ ! -z "$_ResourceRules" ]; then
+    codesign_cmd=$codesign_cmd" --resource-rules=${_ResourceRules} "
+fi
+
+#签名PlugIns
+Default_IFS=$IFS
+IFS=$'\n' #这个必须要，否则会在文件名中有空格时出错
+
+dir=$(ls $_Out/*.app/Contents/PlugIns/ |awk '/appex/')
+for i in $dir
+do
+    framework_path=${_Out}/*.app/Contents/PlugIns/${i};
+    #framework_path=${framework_path//' '/'\ '}
+    echo $framework_path
+
+    rm -rf ${framework_path}/Versions/A/_CodeSignature
+    rm -rf ${framework_path}/Contents/_CodeSignature
+    echo codesign -fs ${_ApplicationCertificate}  --entitlements=${_Out}/entitlements.plist ${framework_path}
+    codesign -fs ${_ApplicationCertificate}  --entitlements=${_Out}/entitlements.plist ${framework_path}
+done
+
+#签名Frameworks
+dir=$(ls -l $_Out/*.app/Contents/Frameworks/ |awk '/^d/ {print $NF}')
+
+for i in $dir
+do
+    framework_path=${_Out}/*.app/Contents/Frameworks/${i};
+    #framework_path=${framework_path//' '/'\ '}
+    echo $framework_path
+
+    rm -rf ${framework_path}/_CodeSignature
+    echo codesign -fs ${_ApplicationCertificate}  --entitlements=${_Out}/entitlements.plist ${framework_path}
+    codesign -fs ${_ApplicationCertificate}  --entitlements=${_Out}/entitlements.plist ${framework_path}
+done
+
+IFS=$Default_IFS
+
+#签名App
+codesignApp_cmd=$codesign_cmd" ${_Out}/*.app "
+
+echo $codesignApp_cmd
+$codesignApp_cmd
+
+currentPath=${pwd}
+
+productbuild --sign ${_InstallerCertificate} --component $_Out/*.app /Applications $_Out/reSign.pkg
+
+
+exit
+
