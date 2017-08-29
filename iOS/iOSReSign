@@ -79,7 +79,9 @@ echo "-$KEY_Out=$_Out"
 echo ""
 
 #cd $_Out
-rm -rf $_Out/
+rm -rf $_Out/entitlements.plist
+rm -rf $_Out/Payload/
+rm -rf $_Out/reSign.ipa
 unzip $_IPA_PATH -d $_Out
 rm -rf $_Out/Payload/*.app/_CodeSignature
 

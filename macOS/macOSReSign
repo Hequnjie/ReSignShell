@@ -85,8 +85,9 @@ echo "-$KEY_Out=$_Out"
 echo ""
 
 #cd $_Out
-rm -rf $_Out/
-mkdir $_Out/
+rm -rf $_Out/entitlements.plist
+rm -rf $_Out/reSign.pkg
+#mkdir $_Out/
 var=$_APP_PATH
 var=${var##*/}
 cp -r $_APP_PATH $_Out/$var
