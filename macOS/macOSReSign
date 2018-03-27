@@ -91,16 +91,24 @@ rm -rf $_Out/reSign.pkg
 var=$_APP_PATH
 var=${var##*/}
 cp -r $_APP_PATH $_Out/$var
-rm -rf $_Out/*.app/Contents/_CodeSignature
+
+appFoulderName=""
+dir=$(ls $_Out/ |awk '/.app/')
+for i in $dir
+do
+appFoulderName=$i
+done
+
+rm -rf $_Out/$appFoulderName/Contents/_CodeSignature
 
 if [ ! -z "$_ProvisionProfilePath" ]; then
-    cp $_ProvisionProfilePath $_Out/*.app/Contents/embedded.mobileprovision
+    cp $_ProvisionProfilePath $_Out/$appFoulderName/Contents/embedded.mobileprovision
 fi
 
-/usr/libexec/PlistBuddy -x -c "print :Entitlements " /dev/stdin <<< $(security cms -D -i $_Out/*.app/Contents/embedded.provisionprofile) > $_Out/entitlements.plist
+/usr/libexec/PlistBuddy -x -c "print :Entitlements " /dev/stdin <<< $(security cms -D -i $_Out/$appFoulderName/Contents/embedded.provisionprofile) > $_Out/entitlements.plist
 
 if [ ! -z "$_AppBundleIdentifier" ]; then
-/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${_AppBundleIdentifier}" $_Out/*.app/Contents/Info.plist
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${_AppBundleIdentifier}" $_Out/$appFoulderName/Contents/Info.plist
 fi
 
 codesign_cmd="codesign -fs ${_ApplicationCertificate}  --entitlements=${_Out}/entitlements.plist"
@@ -113,10 +121,10 @@ fi
 Default_IFS=$IFS
 IFS=$'\n' #这个必须要，否则会在文件名中有空格时出错
 
-dir=$(ls $_Out/*.app/Contents/PlugIns/ |awk '/appex/')
+dir=$(ls $_Out/$appFoulderName/Contents/PlugIns/ |awk '/appex/')
 for i in $dir
 do
-    framework_path=${_Out}/*.app/Contents/PlugIns/${i};
+    framework_path=${_Out}/$appFoulderName/Contents/PlugIns/${i};
     #framework_path=${framework_path//' '/'\ '}
     echo $framework_path
 
@@ -127,11 +135,11 @@ do
 done
 
 #签名Frameworks
-dir=$(ls -l $_Out/*.app/Contents/Frameworks/ |awk '/^d/ {print $NF}')
+dir=$(ls -l $_Out/$appFoulderName/Contents/Frameworks/ |awk '/^d/ {print $NF}')
 
 for i in $dir
 do
-    framework_path=${_Out}/*.app/Contents/Frameworks/${i};
+    framework_path=${_Out}/$appFoulderName/Contents/Frameworks/${i};
     #framework_path=${framework_path//' '/'\ '}
     echo $framework_path
 
@@ -140,10 +148,23 @@ do
     codesign -fs ${_ApplicationCertificate}  --entitlements=${_Out}/entitlements.plist ${framework_path}
 done
 
+#签名.dylib
+dir=$(ls $_Out/Payload/$appFoulderName/Frameworks/ |awk '/.dylib/')
+
+for i in $dir
+do
+dylib_path=${_Out}/Payload/$appFoulderName/Frameworks/${i};
+echo $dylib_path
+
+#rm -rf ${framework_path}/_CodeSignature
+echo codesign -fs ${_Certificate} --entitlements=${_Out}/entitlements.plist ${dylib_path}
+codesign -fs ${_Certificate} --entitlements=${_Out}/entitlements.plist ${dylib_path}
+done
+
 IFS=$Default_IFS
 
 #签名App
-codesignApp_cmd=$codesign_cmd" ${_Out}/*.app "
+codesignApp_cmd=$codesign_cmd" ${_Out}/${$appFoulderName} "
 
 echo $codesignApp_cmd
 $codesignApp_cmd
