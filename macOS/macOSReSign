@@ -128,6 +128,14 @@ do
     #framework_path=${framework_path//' '/'\ '}
     echo $framework_path
 
+    if [ ! -z "$_AppBundleIdentifier" ]; then
+        AppxBundleId=`/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier ${_AppBundleIdentifier}" ${framework_path}/Info.plist`
+        echo "oldAppxID=${AppxBundleId}"
+        /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${_AppBundleIdentifier}.${AppxBundleId##*.}" ${framework_path}/Info.plist
+        AppxBundleId=`/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier ${_AppBundleIdentifier}" ${framework_path}/Info.plist`
+        echo "newAppxID=${AppxBundleId}"
+    fi
+
     rm -rf ${framework_path}/Versions/A/_CodeSignature
     rm -rf ${framework_path}/Contents/_CodeSignature
     echo codesign -fs ${_ApplicationCertificate}  --entitlements=${_Out}/entitlements.plist ${framework_path}
