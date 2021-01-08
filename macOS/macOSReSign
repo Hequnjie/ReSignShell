@@ -129,10 +129,10 @@ do
     echo $framework_path
 
     if [ ! -z "$_AppBundleIdentifier" ]; then
-        AppxBundleId=`/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier ${_AppBundleIdentifier}" ${framework_path}/Info.plist`
+        AppxBundleId=`/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier ${_AppBundleIdentifier}" ${framework_path}/Contents/Info.plist`
         echo "oldAppxID=${AppxBundleId}"
-        /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${_AppBundleIdentifier}.${AppxBundleId##*.}" ${framework_path}/Info.plist
-        AppxBundleId=`/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier ${_AppBundleIdentifier}" ${framework_path}/Info.plist`
+        /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${_AppBundleIdentifier}.${AppxBundleId##*.}" ${framework_path}/Contents/Info.plist
+        AppxBundleId=`/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier ${_AppBundleIdentifier}" ${framework_path}/Contents/Info.plist`
         echo "newAppxID=${AppxBundleId}"
     fi
 
