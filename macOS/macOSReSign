@@ -152,8 +152,10 @@ do
     echo $framework_path
 
     rm -rf ${framework_path}/_CodeSignature
-    echo codesign -fs ${_ApplicationCertificate}  --entitlements=${_Out}/entitlements.plist ${framework_path}
-    codesign -fs ${_ApplicationCertificate}  --entitlements=${_Out}/entitlements.plist ${framework_path}
+    # echo codesign -fs ${_ApplicationCertificate}  --entitlements=${_Out}/entitlements.plist ${framework_path}
+    # codesign -fs ${_ApplicationCertificate}  --entitlements=${_Out}/entitlements.plist ${framework_path}
+    echo codesign -fs ${_ApplicationCertificate} ${framework_path}
+    codesign -fs ${_ApplicationCertificate} ${framework_path}
 done
 
 #签名.dylib
