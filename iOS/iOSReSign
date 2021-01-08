@@ -20,8 +20,7 @@ declare _ResourceRules
 declare _Out
 
 echo ""
-echo "-- reSign start"
-echo ""
+echo "===================== reSign start ====================="
 
 declare keys=()
 declare values=()
@@ -77,11 +76,20 @@ echo "-$KEY_Certificate=$_Certificate"
 echo "-$KEY_ResourceRules=$_ResourceRules"
 echo "-$KEY_Out=$_Out"
 echo ""
+sleep 2
+
+echo ""
+echo "===================== remove out file ====================="
 
 #cd $_Out
 rm -rf $_Out/entitlements.plist
 rm -rf $_Out/Payload/
 rm -rf $_Out/reSign.ipa
+
+echo ""
+echo "===================== unzip ipa ====================="
+echo $_IPA_PATH
+
 unzip $_IPA_PATH -d $_Out
 
 appFoulderName=""
@@ -94,13 +102,19 @@ done
 rm -rf $_Out/Payload/$appFoulderName/_CodeSignature
 
 if [ ! -z "$_ProvisionProfilePath" ]; then
+    echo ""
+    echo "===================== update provision profile ====================="
+    echo $_ProvisionProfilePath
     cp $_ProvisionProfilePath $_Out/Payload/$appFoulderName/embedded.mobileprovision
 fi
 
 /usr/libexec/PlistBuddy -x -c "print :Entitlements " /dev/stdin <<< $(security cms -D -i $_Out/Payload/$appFoulderName/embedded.mobileprovision) > $_Out/entitlements.plist
 
 if [ ! -z "$_AppBundleIdentifier" ]; then
-/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${_AppBundleIdentifier}" $_Out/Payload/$appFoulderName/Info.plist
+    echo ""
+    echo "===================== update bundle identifier ====================="
+    echo $_AppBundleIdentifier
+    /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${_AppBundleIdentifier}" $_Out/Payload/$appFoulderName/Info.plist
 fi
 
 codesign_cmd="codesign -fs ${_Certificate} --entitlements=${_Out}/entitlements.plist"
@@ -108,6 +122,10 @@ codesign_cmd="codesign -fs ${_Certificate} --entitlements=${_Out}/entitlements.p
 if [ ! -z "$_ResourceRules" ]; then
     codesign_cmd=$codesign_cmd" --resource-rules=${_ResourceRules} "
 fi
+
+
+echo ""
+echo "===================== codesign PlugIns ====================="
 
 #签名PlugIns
 Default_IFS=$IFS
@@ -118,20 +136,24 @@ for i in $dir
 do
     framework_path=${_Out}/Payload/$appFoulderName/PlugIns/${i};
     #framework_path=${framework_path//' '/'\ '}
-    echo $framework_path
+    echo ""
+    echo "sign" $framework_path
 
     if [ ! -z "$_AppBundleIdentifier" ]; then
         AppxBundleId=`/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier ${_AppBundleIdentifier}" ${framework_path}/Info.plist`
-        echo "oldAppxID=${AppxBundleId}"
+        echo "oldBundleId = ${AppxBundleId}"
         /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${_AppBundleIdentifier}.${AppxBundleId##*.}" ${framework_path}/Info.plist
         AppxBundleId=`/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier ${_AppBundleIdentifier}" ${framework_path}/Info.plist`
-        echo "newAppxID=${AppxBundleId}"
+        echo "newBundleId = ${AppxBundleId}"
     fi
 
     rm -rf ${framework_path}/_CodeSignature
-    echo codesign -fs ${_Certificate} --entitlements=${_Out}/entitlements.plist ${framework_path}
+    echo ">>>>>>>>>" codesign -fs ${_Certificate} --entitlements=${_Out}/entitlements.plist ${framework_path}
     codesign -fs ${_Certificate} --entitlements=${_Out}/entitlements.plist ${framework_path}
 done
+
+echo ""
+echo "===================== codesign frameworks ====================="
 
 #签名Frameworks
 dir=$(ls -l $_Out/Payload/$appFoulderName/Frameworks/ |awk '/^d/ {print $NF}')
@@ -140,39 +162,55 @@ for i in $dir
 do
     framework_path=${_Out}/Payload/$appFoulderName/Frameworks/${i};
     #framework_path=${framework_path//' '/'\ '}
-    echo $framework_path
+    echo ""
+    echo "sign" $framework_path
 
     rm -rf ${framework_path}/_CodeSignature
     # echo codesign -fs ${_Certificate} --entitlements=${_Out}/entitlements.plist ${framework_path}
     # codesign -fs ${_Certificate} --entitlements=${_Out}/entitlements.plist ${framework_path}
-    echo codesign -fs ${_Certificate} ${framework_path}
+    echo ">>>>>>>>>" codesign -fs ${_Certificate} ${framework_path}
     codesign -fs ${_Certificate} ${framework_path}
 done
+
+echo ""
+echo "===================== codesign dylib ====================="
 
 #签名.dylib
 dir=$(ls $_Out/Payload/$appFoulderName/Frameworks/ |awk '/.dylib/')
 
 for i in $dir
 do
-dylib_path=${_Out}/Payload/$appFoulderName/Frameworks/${i};
-echo $dylib_path
+    dylib_path=${_Out}/Payload/$appFoulderName/Frameworks/${i};
+    echo ""
+    echo "sign" $dylib_path
 
-echo codesign -fs ${_Certificate} --entitlements=${_Out}/entitlements.plist ${dylib_path}
-codesign -fs ${_Certificate} --entitlements=${_Out}/entitlements.plist ${dylib_path}
+    echo ">>>>>>>>>" codesign -fs ${_Certificate} --entitlements=${_Out}/entitlements.plist ${dylib_path}
+    codesign -fs ${_Certificate} --entitlements=${_Out}/entitlements.plist ${dylib_path}
 done
 
 IFS=$Default_IFS
 
+echo ""
+echo "===================== codesign app ====================="
+
 #签名App
 codesignApp_cmd=$codesign_cmd" ${_Out}/Payload/${appFoulderName} "
 
-echo $codesignApp_cmd
+echo ">>>>>>>>>" $codesignApp_cmd
 $codesignApp_cmd
 
 currentPath=${pwd}
 
+echo ""
+echo "===================== zip ipa ====================="
+
 cd ${_Out}
 zip -r ${_Out}/reSign.ipa Payload
+
+echo ""
+echo "===================== finish ====================="
+echo "out ipa" ${_Out}/reSign.ipa
+echo ""
 
 exit
 
